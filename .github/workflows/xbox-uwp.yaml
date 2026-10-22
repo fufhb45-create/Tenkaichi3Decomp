@@ -1,0 +1,30 @@
+name: Build Xbox UWP Release
+
+on:
+  workflow_dispatch: # يتيح لك تشغيل البناء يدوياً في أي وقت
+
+jobs:
+  build:
+    runs-on: windows-latest # استخدام خادم ويندوز يحتوي على أدوات ميكروسوفت تلقائياً
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
+
+    - name: Configure and Generate Solution
+      run: |
+        # إذا كان المشروع يعتمد على سكريبت python للتهيئة، يتم تشغيله هنا
+        python configure.py
+
+    - name: Build UWP App (x64 / Release)
+      run: |
+        msbuild port/uwp/YourProjectSolution.sln /p:Configuration=Release /p:Platform=x64 /p:AppxBundle=Always /p:UapAppxPackageBuildMode=Sideloading
+        
+    - name: Upload Build Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: Tenkaichi3Decomp-Xbox-UWP
+        path: port/uwp/AppPackages/
