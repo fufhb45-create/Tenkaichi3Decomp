@@ -1,0 +1,5 @@
+- name: Install NuGet CLI
+  uses: nuget/setup-nuget@v2
+
+- name: Restore NuGet Packages
+  run: nuget restore path/to/your/solution.sln
