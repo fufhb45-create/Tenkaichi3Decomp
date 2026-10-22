@@ -1,0 +1,35 @@
+name: Build Xbox UWP
+
+on:
+  workflow_dispatch: # يتيح لك تشغيل البناء يدوياً بنقرة زر
+
+jobs:
+  build:
+    runs-on: windows-2022 # استخدام خادم ويندوز مجهز بأدوات مايكروسوفت الأساسية
+
+    steps:
+    - name: Checkout Source Code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive # جلب المكتبات الفرعية إن وجدت
+
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
+
+    - name: Setup NuGet
+      uses: NuGet/setup-nuget@v2
+
+    - name: Restore NuGet Packages
+      run: nuget restore port/xbox/Tenkaichi3Decomp.sln # تأكد من مسار ملف الـ .sln الصحيح الخاص بـ UWP في المشروع
+
+    - name: Build UWP App (x64 / Release)
+      run: |
+        msbuild port/xbox/Tenkaichi3Decomp.sln /p:Configuration=Release /p:Platform=x64 /p:AppxBundle=Never /p:UapAppxPackageBuildMode=Sideloading /p:AppxPackageSigningEnabled=false
+      # ملاحظة: تم تعطيل Signing مؤقتاً لتسهيل البناء بدون شهادة مطور رسمية، ويمكن تثبيتها بوضع المطور على الإكس بوكس.
+
+    - name: Upload UWP Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: Tenkaichi3-Xbox-UWP
+        path: |
+          **/AppPackages/**/*
