@@ -15,7 +15,8 @@ jobs:
       uses: microsoft/setup-msbuild@v2
 
     - name: Configure and Generate Solution
-      run: |
+      run: |runs-on: windows-latest
+
         # إذا كان المشروع يعتمد على سكريبت python للتهيئة، يتم تشغيله هنا
         python configure.py
 
