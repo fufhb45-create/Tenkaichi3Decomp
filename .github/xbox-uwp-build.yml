@@ -1,0 +1,48 @@
+name: Build Xbox UWP
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch: # يتيح لك تشغيل البناء يدوياً بنقرة زر
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout Source Code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive # جلب كافة المكتبات الفرعية المرتبطة بالمشروع
+
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
+
+    - name: Setup NuGet Packages
+      run: nuget restore \${{ github.event.repository.name }}.sln
+
+    - name: Generate Temporary Signing Certificate
+      run: |
+        \$certPassword = ConvertTo-SecureString "Password123" -AsPlainText -Force
+        New-SelfSignedCertificate -Type Custom -Subject "CN=TenkaichiDecomp" -KeyUsage DigitalSignature -FriendlyName "DevCert" -CertStoreLocation "Cert:\CurrentUser\My"
+        # تصدير الشهادة لاستخدامها في حزم UWP
+        # ملاحظة: تأكد من مطابقة اسم الناشر (Publisher) في ملف Package.appxmanifest مع CN=TenkaichiDecomp
+
+    - name: Build UWP Appx Bundle
+      run: |
+        msbuild \${{ github.event.repository.name }}.sln `
+          /p:Configuration=Release `
+          /p:Platform=x64 `
+          /p:AppxBundle=Always `
+          /p:AppxBundlePlatforms="x64" `
+          /p:AppxPackageDir="\${{ github.workspace }}\AppxPackages" `
+          /p:UapAppxPackageBuildMode=StoreUpload `
+          /p:AppxPackageSigningEnabled=true
+
+    - name: Upload Build Artifacts
+      uses: actions/artifacts@v4
+      with:
+        name: Tenkaichi-Xbox-UWP
+        path: \${{ github.workspace }}\AppxPackages\
