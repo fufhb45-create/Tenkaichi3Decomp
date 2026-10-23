@@ -1,0 +1,58 @@
+name: Build Tenkaichi Decomp Xbox UWP
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch: # يتيح لك تشغيل البناء يدوياً من موقع GitHub
+
+jobs:
+  build-uwp:
+    # استخدام خادم ويندوز يحتوي مسبقاً على أدوات MSVC و Windows SDK بدون الحاجة لواجهة VS
+    runs-on: windows-latest
+
+    steps:
+    # 1. سحب كود المشروع مع المكتبات الفرعية (Submodules) إن وجدت
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    # 2. إعداد مفسر بايثون (إذا كان المشروع يعتمد على سكريبتات تهيئة مثل configure.py)
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.x'
+
+    # 3. تفعيل أداة MSBuild في سطر الأوامر (تغنيك تماماً عن واجهة Visual Studio)
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
+
+    # 4. خطوة اختيارية: تشغيل سكريبت التهيئة الخاص بالمشروع إذا كان مطلوباً لتوليد ملفات معينة
+    - name: Run Project Configuration (If needed)
+      run: |
+        if (Test-Path "configure.py") {
+            python configure.py
+        }
+
+    # 5. بناء حزمة UWP (AppX/MSIX) لمنصة Xbox باستخدام MSBuild مباشرة وبدون NuGet
+    - name: Build Xbox UWP Package via MSBuild
+      run: |
+        msbuild XboxUWP/Tenkaichi3Decomp.sln `
+          /p:Configuration=Release `
+          /p:Platform=x64 `
+          /p:AppxPackageSigningEnabled=false `
+          /p:GenerateAppxPackageOnBuild=true `
+          /p:AppxBundle=Always `
+          /p:AppxBundlePlatforms="x64" `
+          /p:AppxPackageDir="${{ github.workspace }}\build-output" `
+          /p:MshideWarnings=true
+
+    # 6. رفع الحزمة الناتجة كملف مضغوط (Artifact) لتحميلها وتثبيتها على Xbox (Dev Mode)
+    - name: Upload Xbox UWP Build Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: Tenkaichi3Decomp-Xbox-UWP
+        path: ${{ github.workspace }}\build-output\
+        if-no-files-found: error
