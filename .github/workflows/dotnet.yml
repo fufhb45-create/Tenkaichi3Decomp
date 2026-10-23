@@ -1,0 +1,26 @@
+name: .NET Restore NuGet Packages
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    # 1. جلب الكود البرمجي من المستودع
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    # 2. إعداد بيئة .NET SDK
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x' # حدد الإصدار الذي يتوافق مع مشروعك
+
+    # 3. استعادة حزم NuGet
+    - name: Restore NuGet packages
+      run: dotnet restore
