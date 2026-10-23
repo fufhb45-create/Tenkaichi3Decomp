@@ -1,0 +1,17 @@
+jobs:
+  build:
+    runs-on: windows-latest  # ضروري لبناء مشاريع UWP و Xbox
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    # 1. تثبيت أداة NuGet CLI على السيرفر
+    - name: Setup NuGet
+      uses: NuGet/setup-nuget@v2
+      with:
+        nuget-version: 'latest'
+
+    # 2. عمل Restore للحزم الخاصة بالمشروع
+    - name: Restore NuGet Packages
+      run: nuget restore path/to/your/solution.sln
