@@ -1,49 +1,53 @@
-name: Build Tenkaichi Decomp Xbox UWP
+name: Build Xbox UWP (No Visual Studio / No NuGet)
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ main ]
   pull_request:
-    branches: [ "main" ]
-  workflow_dispatch: # يتيح لك تشغيل البناء يدويًا
+    branches: [ main ]
+  workflow_dispatch: # يتيح لك تشغيل البناء يدوياً
 
 jobs:
-  build:
-    runs-on: windows-latest
-
-    env:
-      SolutionPath: port/src/Tenkaichi3Decomp.sln # تأكد من مسار ملف الـ Solution الصحيح لمشروع الـ UWP
-      Configuration: Release
-      Platform: x64
+  build-uwp:
+    runs-on: windows-latest # استخدام بيئة ويندوز جاهزة تحتوي على أدوات MSBuild و Windows SDK
 
     steps:
+    # 1. جلب الكود المصدري للمشروع
     - name: Checkout Repository
       uses: actions/checkout@v4
       with:
-        submodules: recursive # لتنزيل كافة المكتبات الفرعية إن وجدت
+        submodules: recursive # جلب المكتبات الفرعية تلقائياً إن وجدت
 
+    # 2. إعداد أدوات MSBuild (تغنيك عن تثبيت Visual Studio بالكامل)
     - name: Setup MSBuild
       uses: microsoft/setup-msbuild@v2
 
-    - name: Setup NuGet
-      uses: NuGet/setup-nuget@v2
-
-    - name: Restore NuGet Packages
-      run: nuget restore \${{ env.SolutionPath }}
-
-    - name: Build UWP App Package
+    # 3. تهيئة بيئة بناء UWP (اختياري: لتحديد إصدار كرت الشاشة والـ SDK المدمج)
+    - name: Configure CMake / Python Pre-build (If needed by the port)
       run: |
-        msbuild \${{ env.SolutionPath }} `
-          /p:Configuration=\${{ env.Configuration }} `
-          /p:Platform=${{ env.Platform }} `
+        python configure.py
+      shell: pwsh
+
+    # 4. بناء المشروع مباشرة بصيغة UWP (Appx / Msix) بدون استدعاء استعادة NuGet التقليدية
+    # نقوم بتمرير الـ Targets والـ Configuration المطلوبة للاكس بوكس
+    - name: Build UWP Project using MSBuild
+      run: |
+        msbuild port/src/platform/uwp/YourProject.sln `
+          /p:Configuration=Release `
+          /p:Platform=x64 `
           /p:AppxBundle=Always `
           /p:AppxBundlePlatforms="x64" `
-          /p:AppxPackageDir="\${{ github.workspace }}\AppxPackages\\" `
-          /p:UapAppxPackageBuildMode=StoreUpload `
-          /p:AppxPackageSigningEnabled=false
+          /p:BuildAppxUploadPackage=false `
+          /p:ResolveNugetPackages=false
+      shell: pwsh
+      # تنويه: استبدل "port/src/platform/uwp/YourProject.sln" بالمسار الصحيح لملف الحل (Solution) الخاص بـ UWP داخل مشروع التفكيك.
 
-    - name: Upload UWP Build Artifacts
+    # 5. رفع ملف الـ Appx/Msix الناتج كـ Artifact لتحميله وتشغيله على Xbox Dev Mode
+    - name: Upload Xbox UWP Build Artifact
       uses: actions/upload-artifact@v4
       with:
         name: Tenkaichi-Decomp-Xbox-UWP
-        path: \${{ github.workspace }}\AppxPackages\
+        path: |
+          **/AppPackages/**/*
+
+
