@@ -1,0 +1,62 @@
+name: Build Tenkaichi Decomp Xbox UWP (No MSBuild/CMake/NuGet)
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-uwp:
+    runs-on: windows-2022
+
+    steps:
+    # 1. جلب الكود المصدري للمشروع
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    # 2. إعداد بيئة بايثون (تستخدمها أدوات التفكيك والترجمة في المشروع)
+    - name: Set up Python
+      uses: actions/actions-setup-python@v5
+      with:
+        python-version: '3.10'
+
+    # 3. تثبيت مجمع Clang والأدوات الأساسية بدون الحاجه لـ Visual Studio
+    - name: Install LLVM/Clang Compiler
+      run: |
+        choco install llvm -y
+        echo "C:\Program Files\LLVM\bin" >> $GITHUB_PATH
+
+    # 4. إعداد وتهيئة مستندات ومصادر مشروع التفكيك عبر سكريبت المشروع الداخلي
+    - name: Configure Project (Internal Script)
+      run: |
+        python configure.py
+        # إذا كنت تملك نسخة الـ ISO الأصلية للمطابقة، يمكنك تفعيل السكريبت المخصص لها هنا:
+        # python install.py --check
+
+    # 5. الترجمة المباشرة للكود باستخدام Clang واستهداف UWP (بدون MSBuild/CMake)
+    - name: Compile Source via Clang (Targeting UWP)
+      run: |
+        mkdir build-output
+        # استدعاء ملفات الـ C و C++ المترجمة مباشرة مع ربط مكتبات Windows Runtime (WindowsApp.lib)
+        # يتم تمرير علم -DWINAPI_FAMILY=WINAPI_FAMILY_APP لتوجيه الكود للعمل كـ UWP
+        clang++ src/*.c port/src/*.cpp -o build-output/TenkaichiDecomp.exe -target x64-pc-windows-msvc -Xclang -DWINAPI_FAMILY=WINAPI_FAMILY_APP -lWindowsApp
+
+    # 6. بناء ملفات التعريف وحزم التطبيق عبر MakeAppx (أداة مدمجة بالويندوز لا تحتاج لـ VS)
+    - name: Package App for Xbox UWP (AppX/MSIX)
+      run: |
+        # ملاحظة: تأكد من وجود ملف AppxManifest.xml في مجلد المشروع، أو قم بإنشاء واحد مبسط
+        # نقوم بنسخ ملفات الموارد و الـ Manifest إلى مجلد المخرجات
+        if (Test-Path "port/assets") { cp -r port/assets build-output/ }
+        if (Test-Path "AppxManifest.xml") { cp AppxManifest.xml build-output/ }
+        
+        # استخدام أداة Windows SDK الرسمية المدمجة في الويندوز لتجميع الحزمة مباشرة
+        & "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\makeappx.exe" pack /d build-output /p Tenkaichi3Decomp_Xbox.msix /o
+
+    # 7. رفع الحزمة النهائية الجاهزة للتثبيت على الـ Xbox (عبر Developer Mode)
+    - name: Upload UWP Package Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: Tenkaichi3Decomp-Xbox-UWP
+        path: Tenkaichi3Decomp_Xbox.msix
